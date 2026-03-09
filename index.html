@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a1208">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Discharge">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>Discharge Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@300;400;600;700&family=Barlow:wght@300;400&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:       #0e0c07;
+  --surface:  #161309;
+  --card:     #1c1810;
+  --border:   #2e2610;
+  --border2:  #3d3318;
+  --gold:     #c8922a;
+  --gold-lt:  #e8b84b;
+  --gold-dim: #6b4e18;
+  --sand:     #d4b896;
+  --sand-dim: #6b5540;
+  --olive:    #7a8c3c;
+  --olive-lt: #a0bc4e;
+  --red:      #c0392b;
+  --red-lt:   #e74c3c;
+  --text:     #d4c9b0;
+  --text-mid: #8a7d64;
+  --text-dim: #4a4030;
+}
+
+html,body{height:100%;overflow-x:hidden}
+
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Barlow Condensed',sans-serif;
+  min-height:100vh;
+  padding: env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0);
+}
+
+/* ─── NOISE TEXTURE overlay ─── */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:0;opacity:0.6;
+}
+
+.app{position:relative;z-index:1;max-width:480px;margin:0 auto;padding:0 0 32px}
+
+/* ─── TOP BAR ─── */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 20px 12px;
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg,rgba(200,146,42,0.06),transparent);
+}
+.topbar-left{display:flex;flex-direction:column;gap:2px}
+.topbar-badge{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:11px;letter-spacing:4px;
+  color:var(--gold-dim);
+}
+.topbar-title{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:28px;letter-spacing:5px;
+  color:var(--gold-lt);
+  text-shadow:0 0 30px rgba(200,146,42,0.3);
+  line-height:1;
+}
+.topbar-live{
+  display:flex;align-items:center;gap:6px;
+  font-size:11px;letter-spacing:2px;
+  color:var(--text-dim);
+}
+.live-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:var(--olive-lt);
+  box-shadow:0 0 6px var(--olive-lt);
+  animation:pulse 2s infinite;
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.25}}
+
+/* ─── PROGRESS STRIP ─── */
+.prog-wrap{padding:16px 20px;border-bottom:1px solid var(--border)}
+.prog-labels{
+  display:flex;justify-content:space-between;
+  font-size:11px;letter-spacing:1px;
+  color:var(--text-dim);margin-bottom:8px;
+}
+.prog-labels span:last-child{color:var(--gold)}
+.prog-track{
+  height:3px;background:var(--border2);
+  position:relative;overflow:visible;
+}
+.prog-fill{
+  height:100%;
+  background:linear-gradient(90deg,var(--gold-dim),var(--gold-lt));
+  transition:width 2s cubic-bezier(.25,1,.5,1);
+  position:relative;
+}
+.prog-fill::after{
+  content:'';
+  position:absolute;right:-1px;top:-5px;
+  width:2px;height:13px;
+  background:var(--gold-lt);
+  box-shadow:0 0 10px var(--gold-lt),0 0 20px rgba(232,184,75,0.4);
+}
+
+/* ─── MAIN COUNTDOWN ─── */
+.countdown-wrap{
+  padding:20px;
+  display:grid;grid-template-columns:repeat(4,1fr);gap:8px;
+  border-bottom:1px solid var(--border);
+}
+.cd-unit{
+  background:var(--card);
+  border:1px solid var(--border2);
+  border-radius:2px;
+  padding:16px 6px 12px;
+  text-align:center;
+  position:relative;
+  overflow:hidden;
+}
+.cd-unit::after{
+  content:'';
+  position:absolute;bottom:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--gold-dim),transparent);
+}
+.cd-num{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(34px,9vw,52px);
+  color:var(--gold-lt);
+  text-shadow:0 0 20px rgba(232,184,75,0.35);
+  line-height:1;display:block;
+}
+.cd-label{
+  font-size:9px;letter-spacing:3px;
+  color:var(--text-dim);
+  margin-top:5px;display:block;
+}
+
+/* ─── STATS ROW ─── */
+.stats-wrap{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:1px;background:var(--border);
+  border-top:1px solid var(--border);
+  border-bottom:1px solid var(--border);
+}
+.stat-cell{
+  background:var(--surface);
+  padding:14px 8px;text-align:center;
+}
+.stat-num{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:26px;color:var(--sand);
+  display:block;letter-spacing:1px;
+  text-shadow:0 0 15px rgba(212,184,150,0.2);
+}
+.stat-lbl{font-size:9px;letter-spacing:2px;color:var(--text-dim);margin-top:2px;display:block}
+
+/* ─── SECTION HEADER ─── */
+.sec-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 20px 12px;
+  border-bottom:1px solid var(--border);
+}
+.sec-title{font-size:11px;letter-spacing:4px;color:var(--gold-dim);font-weight:600}
+.sec-btn{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:11px;letter-spacing:2px;
+  background:none;border:1px solid var(--border2);
+  color:var(--text-dim);padding:4px 12px;
+  cursor:pointer;transition:all .2s;border-radius:1px;
+}
+.sec-btn:hover{border-color:var(--gold-dim);color:var(--gold)}
+.sec-btn.active{border-color:var(--gold-dim);color:var(--gold);background:rgba(200,146,42,0.06)}
+
+/* ─── ROTATION STATUS ─── */
+.rot-status-bar{
+  padding:16px 20px;
+  display:flex;align-items:center;gap:14px;
+  border-bottom:1px solid var(--border);
+}
+.rot-dot{
+  width:14px;height:14px;border-radius:50%;flex-shrink:0;
+  background:var(--border2);
+  transition:all .4s;
+}
+.rot-dot.duty{background:var(--red-lt);box-shadow:0 0 14px var(--red);animation:pulse 1.4s infinite}
+.rot-dot.off {background:var(--olive-lt);box-shadow:0 0 14px var(--olive)}
+
+.rot-info{}
+.rot-main{font-size:17px;font-weight:700;letter-spacing:1px;color:var(--text)}
+.rot-sub{font-size:11px;letter-spacing:1px;color:var(--text-dim);margin-top:2px}
+
+/* ─── ROTATION FORM ─── */
+.rot-form{
+  padding:16px 20px;
+  border-bottom:1px solid var(--border);
+  display:none;
+  background:rgba(0,0,0,0.2);
+}
+.rot-form.open{display:block}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.fgroup{display:flex;flex-direction:column;gap:5px}
+.fgroup label{font-size:10px;letter-spacing:2px;color:var(--text-dim)}
+.fgroup input[type=date]{
+  background:var(--bg);
+  border:1px solid var(--border2);
+  color:var(--text);
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:13px;padding:9px 10px;
+  outline:none;border-radius:1px;width:100%;
+  transition:border-color .2s;
+  color-scheme:dark;
+}
+.fgroup input:focus{border-color:var(--gold-dim)}
+.form-actions{display:flex;gap:8px}
+
+.btn-primary{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:12px;letter-spacing:3px;font-weight:600;
+  background:var(--gold-dim);color:var(--gold-lt);
+  border:1px solid var(--gold-dim);
+  padding:9px 20px;cursor:pointer;
+  transition:all .2s;border-radius:1px;
+}
+.btn-primary:hover{background:var(--gold);color:var(--bg)}
+
+.btn-ghost{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:12px;letter-spacing:2px;
+  background:none;color:var(--text-dim);
+  border:1px solid var(--border2);
+  padding:9px 16px;cursor:pointer;
+  transition:all .2s;border-radius:1px;
+}
+.btn-ghost:hover{border-color:var(--red);color:var(--red)}
+
+/* ─── ROTATION LOG ─── */
+.rot-log{padding:0 20px}
+.rot-log:empty{padding:0}
+.log-row{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 0;
+  border-bottom:1px solid var(--border);
+  font-size:12px;
+}
+.log-row:last-child{border-bottom:none}
+.tag{
+  font-size:9px;letter-spacing:2px;
+  padding:2px 7px;border:1px solid;
+  border-radius:1px;flex-shrink:0;
+}
+.tag.on {color:var(--red-lt);border-color:var(--red)}
+.tag.off{color:var(--olive-lt);border-color:var(--olive)}
+.log-date{color:var(--text-mid);flex:1;letter-spacing:.5px}
+.log-sep{color:var(--border2)}
+.del-btn{
+  background:none;border:none;
+  color:var(--border2);font-size:18px;
+  cursor:pointer;padding:0 4px;
+  transition:color .2s;line-height:1;
+}
+.del-btn:hover{color:var(--red-lt)}
+
+/* ─── DATES FOOTER ─── */
+.dates-strip{
+  display:grid;grid-template-columns:1fr 1fr;
+  border-top:1px solid var(--border);
+  margin-top:1px;
+}
+.date-block{
+  padding:14px 20px;
+  border-right:1px solid var(--border);
+}
+.date-block:last-child{border-right:none}
+.date-lbl{font-size:9px;letter-spacing:3px;color:var(--text-dim);margin-bottom:4px}
+.date-val{font-size:13px;font-weight:600;color:var(--sand);letter-spacing:.5px}
+
+/* ─── ANIMATIONS ─── */
+.app > *{animation:rise .5s ease both}
+.topbar{animation-delay:0s}
+.prog-wrap{animation-delay:.05s}
+.countdown-wrap{animation-delay:.1s}
+.stats-wrap{animation-delay:.15s}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+@media(max-width:360px){
+  .countdown-wrap{grid-template-columns:repeat(2,1fr)}
+  .form-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="topbar-badge">MILITARY SERVICE</span>
+      <span class="topbar-title">DISCHARGE</span>
+    </div>
+    <div class="topbar-live">
+      <div class="live-dot"></div>
+      LIVE
+    </div>
+  </div>
+
+  <!-- PROGRESS -->
+  <div class="prog-wrap">
+    <div class="prog-labels">
+      <span>12 OCT 2025</span>
+      <span id="pct">0.0% COMPLETE</span>
+    </div>
+    <div class="prog-track">
+      <div class="prog-fill" id="progFill" style="width:0%"></div>
+    </div>
+    <div class="prog-labels" style="margin-top:6px;margin-bottom:0">
+      <span></span>
+      <span style="color:var(--text-dim)">25 NOV 2026</span>
+    </div>
+  </div>
+
+  <!-- COUNTDOWN -->
+  <div class="countdown-wrap">
+    <div class="cd-unit"><span class="cd-num" id="d">00</span><span class="cd-label">DAYS</span></div>
+    <div class="cd-unit"><span class="cd-num" id="h">00</span><span class="cd-label">HOURS</span></div>
+    <div class="cd-unit"><span class="cd-num" id="m">00</span><span class="cd-label">MINS</span></div>
+    <div class="cd-unit"><span class="cd-num" id="s">00</span><span class="cd-label">SECS</span></div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-wrap">
+    <div class="stat-cell"><span class="stat-num" id="served">0</span><span class="stat-lbl">DAYS SERVED</span></div>
+    <div class="stat-cell"><span class="stat-num" id="wLeft">0</span> <span class="stat-lbl">WEEKS LEFT</span></div>
+    <div class="stat-cell"><span class="stat-num" id="mLeft">0</span> <span class="stat-lbl">MONTHS LEFT</span></div>
+  </div>
+
+  <!-- ROTATION SECTION -->
+  <div class="sec-head">
+    <span class="sec-title">ROTATION STATUS</span>
+    <button class="sec-btn" id="formToggle" onclick="toggleForm()">+ LOG ROTATION</button>
+  </div>
+
+  <div class="rot-status-bar">
+    <div class="rot-dot" id="rotDot"></div>
+    <div class="rot-info">
+      <div class="rot-main" id="rotMain">NO ROTATION LOGGED</div>
+      <div class="rot-sub"  id="rotSub">Tap + LOG ROTATION to add dates</div>
+    </div>
+  </div>
+
+  <div class="rot-form" id="rotForm">
+    <div class="form-grid">
+      <div class="fgroup">
+        <label>RETURN TO DUTY</label>
+        <input type="date" id="inDate">
+      </div>
+      <div class="fgroup">
+        <label>OFF PERIOD STARTS</label>
+        <input type="date" id="outDate">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-primary" onclick="saveRot()">SAVE</button>
+      <button class="btn-ghost"   onclick="clearAll()">CLEAR ALL</button>
+    </div>
+  </div>
+
+  <div class="rot-log" id="rotLog"></div>
+
+  <!-- DATES STRIP -->
+  <div class="dates-strip">
+    <div class="date-block">
+      <div class="date-lbl">ENLISTED</div>
+      <div class="date-val">12 OCT 2025</div>
+    </div>
+    <div class="date-block">
+      <div class="date-lbl">DISCHARGE</div>
+      <div class="date-val">25 NOV 2026</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const START=new Date('2025-10-12T00:00:00');
+const END  =new Date('2026-11-25T23:59:59');
+const TOTAL=END-START;
+const SK   ='discharge_rots_v1';
+
+const $=id=>document.getElementById(id);
+function pad(n){return String(Math.floor(n)).padStart(2,'0')}
+function fmt(ds){
+  const d=new Date(ds+'T12:00:00');
+  return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}).toUpperCase();
+}
+
+function tick(){
+  const now =new Date();
+  const diff=END-now;
+  if(diff<=0){
+    ['d','h','m','s'].forEach(id=>$(id).textContent='00');
+    $('pct').textContent='100% COMPLETE';
+    $('progFill').style.width='100%';
+    return;
+  }
+  $(  'd').textContent=pad(diff/86400000);
+  $(  'h').textContent=pad((diff%86400000)/3600000);
+  $(  'm').textContent=pad((diff%3600000)/60000);
+  $(  's').textContent=pad((diff%60000)/1000);
+
+  const elapsed=now-START;
+  const pct=Math.min(100,(elapsed/TOTAL)*100);
+  $('pct').textContent=pct.toFixed(1)+'% COMPLETE';
+  $('progFill').style.width=pct+'%';
+
+  const dl=Math.floor(diff/86400000);
+  $('served').textContent=Math.floor(elapsed/86400000);
+  $('wLeft') .textContent=Math.ceil(dl/7);
+  $('mLeft') .textContent=Math.ceil(dl/30);
+
+  updateStatus(now);
+}
+
+function load(){try{return JSON.parse(localStorage.getItem(SK))||[]}catch{return[]}}
+function store(r){localStorage.setItem(SK,JSON.stringify(r))}
+
+function updateStatus(now){
+  const rots=load();
+  const today=now.toISOString().slice(0,10);
+  const dot=$('rotDot'),main=$('rotMain'),sub=$('rotSub');
+
+  if(!rots.length){
+    dot.className='rot-dot';
+    main.textContent='NO ROTATION LOGGED';
+    sub.textContent='Tap + LOG ROTATION to add dates';
+    return;
+  }
+
+  // Check ON duty
+  const onR=rots.find(r=>today>=r.inDate&&today<r.outDate);
+  if(onR){
+    dot.className='rot-dot duty';
+    main.textContent='ON DUTY';
+    sub.textContent='OFF STARTS: '+fmt(onR.outDate);
+    return;
+  }
+
+  // Check OFF period
+  const sorted=[...rots].sort((a,b)=>a.outDate.localeCompare(b.outDate));
+  for(let i=0;i<sorted.length;i++){
+    if(today>=sorted[i].outDate){
+      const next=rots.filter(r=>r.inDate>today).sort((a,b)=>a.inDate.localeCompare(b.inDate))[0];
+      if(!next||today<next.inDate){
+        dot.className='rot-dot off';
+        main.textContent='OFF WEEK — FREE TIME';
+        sub.textContent=next?'RETURN TO DUTY: '+fmt(next.inDate):'ENJOY YOUR TIME';
+        return;
+      }
+    }
+  }
+
+  // Upcoming
+  const next=rots.filter(r=>r.inDate>today).sort((a,b)=>a.inDate.localeCompare(b.inDate))[0];
+  dot.className='rot-dot';
+  main.textContent='UPCOMING DUTY';
+  sub.textContent=next?'REPORTS: '+fmt(next.inDate):'';
+}
+
+function toggleForm(){
+  const f=$('rotForm'),b=$('formToggle');
+  const open=f.classList.toggle('open');
+  b.textContent=open?'− CLOSE':'+ LOG ROTATION';
+  b.classList.toggle('active',open);
+}
+
+function saveRot(){
+  const inDate=$('inDate').value,outDate=$('outDate').value;
+  if(!inDate||!outDate){alert('Please fill both dates.');return}
+  if(outDate<=inDate){alert('Off date must be after duty date.');return}
+  const rots=load();
+  rots.push({inDate,outDate,id:Date.now()});
+  rots.sort((a,b)=>a.inDate.localeCompare(b.inDate));
+  store(rots);
+  $('inDate').value='';$('outDate').value='';
+  renderLog();updateStatus(new Date());
+}
+
+function delRot(id){
+  store(load().filter(r=>r.id!==id));
+  renderLog();updateStatus(new Date());
+}
+
+function clearAll(){
+  if(!confirm('Clear all rotation data?'))return;
+  localStorage.removeItem(SK);
+  renderLog();updateStatus(new Date());
+}
+
+function renderLog(){
+  const rots=load(),el=$('rotLog');
+  if(!rots.length){el.innerHTML='';return}
+  el.innerHTML=rots.map(r=>`
+    <div class="log-row">
+      <span class="tag on">DUTY</span>
+      <span class="log-date">${fmt(r.inDate)}</span>
+      <span class="log-sep">→</span>
+      <span class="tag off">OFF</span>
+      <span class="log-date">${fmt(r.outDate)}</span>
+      <button class="del-btn" onclick="delRot(${r.id})">×</button>
+    </div>`).join('');
+}
+
+// Service Worker registration
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+
+renderLog();tick();setInterval(tick,1000);
+</script>
+</body>
+</html>
